@@ -1,0 +1,439 @@
+version: 1
+
+# GLOBAL CONFIGURATION
+
+auth-server:
+  url: https://your-server-name.com:30080/auth
+  realm: AnacondaPlatform
+  realm-key: ''
+
+db:
+  drivername: postgresql
+  host: postgres
+  port: 5432
+  username: postgres
+  password: ''
+
+auth-escrow:
+  url: https://your-server-name.com:30091/api/v1
+
+https:
+  certificate-authority: /etc/secrets/certs/rootca.crt
+  # certificate-authority: /etc/ssl/certs/DST_Root_CA_X3.pem  # For lets encrypt
+
+images:
+  app: apiserver:5000/ap-app:5.1.0
+  app_proxy: apiserver:5000/ap-app-proxy:5.1.0
+  editor: apiserver:5000/ap-editor:5.1.0
+
+kubernetes:
+  server: https://kubernetes.default.svc.cluster.local
+  use_service_account: true
+  max_cores_per_app: 2
+  max_ram_mb_per_app: 2048
+
+license:
+  # number: PASTE_LICENSE_CODE_OR_CLIENT_ID_HERE
+  # key: PASTE_OFFLINE_KEY_HERE_FOR_OFFLINE_ACTIVATION
+  working-directory: /tmp/anaconda
+  security:
+    x: 207
+    y: 705
+    z: 278
+  analytics:
+    enabled: true
+
+admin:
+  users:
+    # Any user matching the users, group affiliations, or roles (in the auth service)
+    # described below is a platform-wide administrator.
+    users: []
+    groups:
+      - admins
+    roles:
+      - ae-admin
+
+# PER-SERVICE CONFIGURATION
+
+auth:
+  port: 9080
+  db:
+    database: anaconda_auth
+  https:
+    keystore: /etc/secrets/certs/keystore.jks
+    keystore-password: anaconda
+    key-alias: auth
+    truststore: null  # optional
+    truststore-password: null  # optional
+  debug: False
+  import-file: /etc/secrets/keycloak/keycloak.json
+  api:
+    port: 9090
+    limit: 12
+    https:
+      key: /etc/secrets/certs/server.key
+      certificate: /etc/secrets/certs/server.crt
+  escrow:
+    port: 9091
+    db:
+      database: anaconda_auth_escrow
+    hosts:
+      - your-server-name.com:30091
+    prefix: ''
+    https:
+      key: /etc/secrets/certs/server.key
+      certificate: /etc/secrets/certs/server.crt
+    auth-server:
+      client-secret: 12345678-912345678-1234-567891234567
+      client-id: anaconda-platform
+
+deploy:
+  port: 8081
+  prefix: ''
+  url: https://your-server-name.com:30081/
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  hosts:
+    - your-server-name.com:30081
+  db:
+    database: anaconda_deploy
+  users: '*'
+  deployers:
+    users: []
+    groups: []
+    roles:
+      - ae-deployer
+  superusers:
+    users: []
+    groups: []
+    roles:
+      - ae-admin
+  auth-server:
+    client-id: anaconda-deploy
+  apps-host: your-server-name.com
+  auth-proxy:
+    client-id: anaconda-deploy-proxy
+    dns-server: 10.100.0.4
+    https:
+      key: /etc/secrets/certs/wildcard.key
+      certificate: /etc/secrets/certs/wildcard.crt
+
+  debug: False
+
+spaces:
+  port: 8090
+  prefix: ''
+  url: https://your-server-name.com:30095/
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  hosts:
+    - your-server-name.com:30095
+  db:
+    database: anaconda_spaces
+    # increased pool size to accommodate for Kubernetes slowness
+    pool:
+      size: 10
+      overflow: 20
+      timeout: 60
+
+  users: '*'
+  superusers:
+    users: []
+    groups: []
+    roles:
+      - ae-admin
+
+  auth-server:
+    client-id: anaconda-spaces-api
+  spaces-host: your-server-name.com
+  auth-proxy:
+    client-id: anaconda-spaces
+    dns-server: 10.100.0.4
+    https:
+      key: /etc/secrets/certs/wildcard.key
+      certificate: /etc/secrets/certs/wildcard.crt
+
+  debug: False
+
+storage:
+  host: your-server-name.com
+  port: 8086
+  prefix: ''
+  hosts:
+    - your-server-name.com:30086
+  url: https://your-server-name.com:30086
+  db:
+    database: anaconda_storage
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  git:
+    default:
+      name: Example.com Anaconda Enterprise Server
+      type: internal
+      # use 127.0.0.1 for all network connections including hairpin
+      url: https://127.0.0.1:8088
+      repository: '{owner}-{id}'
+      auth-header: Anaconda-User
+      username: anaconda
+      # no password needed when using auth-header
+      proxy:
+        url: https://your-server-name.com:30085
+        client-id: anaconda-git-proxy
+        dns-server: 10.100.0.4
+        run-as-user: www-data
+        api-key: 1234567891234567891234567891234567891234567891234567891234567891
+        port: 8095
+        probe-port: 8096
+        https:
+          key: /etc/secrets/certs/server.key
+          certificate: /etc/secrets/certs/server.crt
+  objects:
+    projects:
+      bucket: anaconda-projects
+      path: projects/{owner}-{id}
+    global:
+      bucket: anaconda-objects
+      path: 'global/'
+    public:
+      bucket: anaconda-objects
+      path: 'public/'
+  users: '*'
+  creators:
+    users: []
+    groups: []
+    roles:
+      - ae-creator
+  superusers:
+    users: []
+    groups: []
+    roles:
+      - ae-admin
+
+repository:
+  url: https://your-server-name.com:30089/
+  port: 8089
+  hosts:
+    - your-server-name.com:30089
+    - 127.0.0.1:8089
+  prefix: ''
+  db:
+    database: anaconda_repository
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  users: '*'
+  uploaders:
+    users: []
+    groups: []
+    roles:
+      - ae-uploader
+  superusers:
+    users: []
+    groups: []
+    roles:
+      - ae-admin
+  bucket: anaconda-repository
+  auth-escrow:
+    url: https://your-server-name.com:30091/api/v1
+  cleanup-upload-seconds: 3600
+  cleanup-period-seconds: 73
+  index-update-cooldown-seconds: 7
+  index-update-period-seconds: 23
+
+s3:
+  host: 0.0.0.0
+  port: 8087
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  access-key: 's3-access-key'
+  secret-key: 's3-secret-key'
+  directory: /export
+
+s3-client:
+  endpoint-url: https://your-server-name.com:30087
+  access-key: 's3-access-key'
+  secret-key: 's3-secret-key'
+  region-name: 'us-east-1'
+
+git:
+  url: https://your-server-name.com:30088
+  host: your-server-name.com
+  port: 8088
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  db:
+    database: anaconda_git
+  directory: /export
+  username: anaconda
+  lfs-secret: 1234567891234567891234567891234567891234567
+  secret-key: 123456789123456789123456789123456789123456789123456789
+
+# when installing in airgap replace channel: defaults with the following
+# - https://your-server-name.com:30089/conda/anaconda
+conda:
+  channels:
+    - defaults
+  default-channels: []
+  channel-alias: https://your-server-name.com:30089/conda
+
+sync:
+  lfs-threshold: 1000000
+  prefix: ''
+  hosts: []
+  port: 8093
+  project-dir: ''
+
+offline_docs:
+  url: https://your-server-name.com:30071
+  hosts:
+    - your-server-name.com:30071
+  port: 8091
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  directory: docs/_build/
+  prefix: ''
+
+ui:
+  base-url: /
+  cookie-secret: this-is-a-very-insecure-secret
+  cookie-session:
+    name: anaconda-platform-ui-session-v1
+  cookie-next:
+    name: anaconda-platform-ui-next-v1
+  db:
+    database: anaconda_ui
+  debug: False
+  host: your-server-name.com
+  public-url: https://your-server-name.com:30090/
+  https:
+    key: /etc/secrets/certs/server.key
+    certificate: /etc/secrets/certs/server.crt
+  port: 6990
+  auth-server:
+    client-secret: 123456789123456789123456789123456789123456789123456789
+    client-id: anaconda-platform
+  services:
+    anaconda-storage:
+      storage:
+        icon: fa-anaconda
+        label: Storage
+        url: https://your-server-name.com:30086/api/v1
+    anaconda-deploy:
+      deploy:
+        icon: fa-anaconda
+        label: Deploy
+        url: https://your-server-name.com:30081/api/v1
+    anaconda-spaces:
+      spaces:
+        icon: fa-anaconda
+        label: Spaces
+        url: https://your-server-name.com:30095/api/v1
+        options:
+          spaces:
+            tools:
+              notebook:
+                default: true
+                label: Jupyter Notebook Classic
+                packages: [notebook]
+              lab-pre:
+                label: JupyterLab
+                packages: [jupyterlab]
+              sync:
+                label: Anaconda Project Sync
+                packages: [anaconda-platform-sync]
+            templates:
+              jupyter-5:
+                label: Jupyter Notebook Classic
+                tools:
+                  - notebook
+                  - sync
+              jupyterlab:
+                label: JupyterLab
+                default: true
+                tools:
+                  - lab-pre
+                  - sync
+    anaconda-repo:
+      anaconda-org:
+        html-url: https://anaconda.org
+        icon: fa-anaconda
+        label: Repository
+        url: https://api.anaconda.org
+        options:
+          extra-shared-namespaces:
+            - anaconda-enterprise
+        disabled: true
+
+    anaconda-repo5:
+      repo:
+        html-url: https://your-server-name.com:30089
+        icon: fa-anaconda
+        label: Repo Service
+        url: https://your-server-name.com:30089/api
+
+    auth-api:
+      auth-api:
+        icon: fa-anaconda
+        label: Auth API
+        url: https://your-server-name.com:30082/api/v1
+    anaconda-enterprise-notebooks:
+      aen:
+        html-url: https://notebooks.example.com
+        icon: fa-anaconda
+        label: Enterprise Notebooks
+        disabled: true
+    documentation:
+      offline_docs:
+        html-url: https://your-server-name.com:30071
+        icon: fa-anaconda
+        label: Documentation
+        url: https://your-server-name.com:30071
+    github:
+      github_com:
+        html-url: https://github.com
+        icon: fa-github
+        label: GitHub
+        url: https://api.github.com
+        disabled: true
+  help:
+    docs:
+      label: Anaconda Documentation - Home
+      external: true
+      href: https://your-server-name.com:30071
+      position: 0
+    started:
+      label: Getting Started with Anaconda Enterprise
+      external: true
+      href: https://your-server-name.com:30071/user-guide/getting-started/
+      position: 1
+    release:
+      label: Release Notes
+      external: true
+      href: https://your-server-name.com:30071/release-notes.html
+      position: 2
+    support:
+      label: Support
+      external: true
+      href: https://your-server-name.com:30071/help-support.html
+      position: 3
+    feedback:
+      label: Feedback
+      external: true
+      href: https://continuum.typeform.com/to/TnHsme
+      position: 4
+
+  js_application:
+    analytics:
+      hotjar:
+        hjid: 000000
+        hjsv: 0
+        baseURL: //static.hotjar.com/c/hotjar-
+
+postgresql:
+  port: 7080
